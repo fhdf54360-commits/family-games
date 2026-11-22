@@ -246,12 +246,28 @@ body::after{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;opa
 .avs{grid-template-columns:repeat(6,minmax(0,1fr))}
 .av{min-width:0;width:100%;font-size:clamp(18px,6.2vw,27px)}
 @media (max-width:400px){.avs{gap:5px}.av{border-radius:12px}}
+/* زر المايك العائم (يتسحب) */
+#micfab{position:fixed;z-index:60;display:none;touch-action:none;user-select:none;-webkit-user-select:none}
+#micfab.show{display:block}
+.mf-btn{width:62px;height:62px;border-radius:50%;border:2px solid rgba(255,255,255,.35);font-size:28px;color:#fff;cursor:grab;
+  background:linear-gradient(180deg,#ff7a8e,#ff4d67);box-shadow:0 8px 22px rgba(0,0,0,.45);animation:mfbob 2.4s ease-in-out infinite;display:flex;align-items:center;justify-content:center;padding:0}
+.mf-btn.on{background:linear-gradient(180deg,#5af0bf,#1fcf93);animation:mfbob 2.4s ease-in-out infinite,mfring 1.3s ease-out infinite}
+@keyframes mfbob{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+@keyframes mfring{0%{box-shadow:0 0 0 0 rgba(46,230,166,.65),0 8px 22px rgba(0,0,0,.45)}100%{box-shadow:0 0 0 18px rgba(46,230,166,0),0 8px 22px rgba(0,0,0,.45)}}
+.mf-x{position:absolute;top:-7px;right:-7px;width:24px;height:24px;border-radius:50%;border:0;background:rgba(0,0,0,.75);color:#fff;font-size:12px;font-weight:900;cursor:pointer;padding:0}
+.mf-lb{position:absolute;top:68px;left:50%;transform:translateX(-50%);font-size:11px;font-weight:800;white-space:nowrap;background:rgba(0,0,0,.6);color:#fff;padding:2px 8px;border-radius:99px;pointer-events:none}
+.mf-tab{width:34px;height:52px;border:0;font-size:18px;color:#fff;cursor:pointer;padding:0;background:linear-gradient(180deg,#ff7a8e,#ff4d67);box-shadow:0 6px 16px rgba(0,0,0,.4);animation:mfbob 2.4s ease-in-out infinite}
+.mf-tab.on{background:linear-gradient(180deg,#5af0bf,#1fcf93)}
+#micfab.l .mf-tab{border-radius:0 16px 16px 0}#micfab.r .mf-tab{border-radius:16px 0 0 16px}
+#micfab.l .mf-lb{left:0;transform:none}#micfab.r .mf-lb{left:auto;right:0;transform:none}
+#micfab.drag .mf-btn,#micfab.drag .mf-tab{animation:none;transform:scale(1.12);cursor:grabbing}
 </style>
 </head>
 <body>
 <div id="app"></div>
 <div id="toast"></div>
 <div id="modal"></div>
+<div id="micfab"></div>
 <script>
 'use strict';
 /* ╔══════════════════════════════════════════════════════════════════╗
@@ -859,6 +875,7 @@ function hostHandle(id,m){
     case 'in':return onInput(id,d);
     case 'vote':return onVote(id,d);
     case 'rp':broadcast({t:'fx',d:{k:'react',from:id,e:REACTS.includes(d.e)?d.e:'👏'}});return;
+    case 'vc':return hostVoice(id,d);
   }
 }
 function onHello(id,d){
@@ -1069,6 +1086,7 @@ function clientHandle(m){
     case 'po':if(d.ts!=null)C.rtt=Math.round(performance.now()-d.ts);updateNetChip();return;
     case 'rtc':clientRtc(d);return;
     case 'ice':clientIce(d);return;
+    case 'vc':voicePlay(d);return;
     default:return;
   }
   render();
@@ -1097,7 +1115,7 @@ async function joinRoom(code,bIdx,opts={}){
     chosen.mq.end();if(!opts.quiet){toast('اللعبة في هذي الغرفة بدأت');goHome()}return false;
   }
   Net.mq=chosen.mq;Net.idx=chosen.idx;Net.mq.handlers=[clientMq];Net.mq.onclose=reconnectLoop;
-  ['/all','/c/'+Net.myId,'/s'].forEach(s=>Net.mq.subscribe(tp(s)));
+  ['/all','/c/'+Net.myId,'/s','/v'].forEach(s=>Net.mq.subscribe(tp(s)));
   C.lastHost=performance.now();
   sendHost({t:'hello',d:{name:myName(),av:myAv(),k:Net.key||undefined}},true);
   clearTimeout(Net.helloT);
@@ -1106,6 +1124,7 @@ async function joinRoom(code,bIdx,opts={}){
 }
 function clientMq(topic,payload){
   if(topic===tp('/all')||topic===tp('/c/'+Net.myId)){let m;try{m=JSON.parse(payload)}catch(e){return}clientHandle(m);return}
+  if(topic===tp('/v')){let m;try{m=JSON.parse(payload)}catch(e){return}if(C.joined&&m&&m.t==='vc')voicePlay(m.d);return}
   if(topic===tp('/s')){try{C.preview=JSON.parse(b64d(payload));if(!C.joined)render()}catch(e){}return}
   if(topic===tp('/room')&&!payload&&C.joined)hostGone('المضيف قفل الغرفة');
 }
@@ -1131,7 +1150,7 @@ async function quickMatch(){
 }
 function hostGone(msg){if(!C.joined&&!Net.mq)return;toast(msg||'انقطع الاتصال بالمضيف');leaveRoom(true)}
 function leaveRoom(silent){
-  Net.leaving=true;clearTimeout(Net.helloT);
+  Net.leaving=true;clearTimeout(Net.helloT);voiceStop();
   if(Net.isHost){closeRoom()}
   else if(C.joined){try{sendHost({t:'bye'});sendHost({t:'bye'},true)}catch(e){}}
   if(Net.hp){try{Net.hp.pc.close()}catch(e){}Net.hp=null}
@@ -1157,6 +1176,122 @@ setInterval(()=>{
 },3000);
 window.addEventListener('pagehide',()=>{if(!C.joined)return;if(Net.isHost)closeRoom();else{sendHost({t:'bye'});sendHost({t:'bye'},true)}});
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&Net.mq&&!Net.mq.connected&&!Net.leaving)reconnectLoop()});
+
+/* ---------- المايك (صوت داخل الغرفة) ----------
+   الصوت يتقطع لمقاطع صغيرة (8kHz μ-law) ويمشي عبر نفس طريق اللعبة:
+   المباشر (قناة u) لو متاح، وإلا عبر الخادم. المضيف يوزع الصوت على الباقين
+   (للمباشرين عبر u، وللباقين مرة وحدة على الموضوع /v). */
+const V = {on:false,busy:false,ctx:null,out:null,stream:null,src:null,proc:null,mute:null,tail:new Float32Array(0),pos:0,hang:0,seq:Date.now(),next:{},seqs:{}};
+function voiceCtx(){
+  if(!V.ctx){try{V.ctx=new (window.AudioContext||window.webkitAudioContext)();V.out=V.ctx.createGain();V.out.connect(V.ctx.destination)}catch(e){return null}}
+  if(V.ctx.state==='suspended')V.ctx.resume().catch(()=>{});
+  return V.ctx;
+}
+function mulawEnc(x){let s=Math.round(Math.max(-1,Math.min(1,x))*32767);const sign=s<0?0x80:0;if(s<0)s=-s;s=Math.min(s,32635)+132;let e=7;for(let m=0x4000;(s&m)===0&&e>0;m>>=1)e--;return(~(sign|(e<<4)|((s>>(e+3))&0x0F)))&0xFF}
+function mulawDec(u){u=~u&0xFF;const e=(u>>4)&7,t=(((u&0x0F)<<3)+132)<<e;return((u&0x80)?132-t:t-132)/32768}
+async function micToggle(){
+  if(V.busy)return;
+  if(V.on){micOff();render();toast('🔇 قفلت المايك');return}
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){toast('المايك يحتاج تفتح اللعبة من رابط https');return}
+  const ctx=voiceCtx();if(!ctx){toast('جهازك ما يدعم الصوت');return}
+  V.busy=true;
+  try{V.stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}})}
+  catch(e){V.busy=false;toast('ما قدرنا نشغل المايك — اسمح للمتصفح يستخدم المايك');return}
+  V.busy=false;
+  if(!C.joined){micOff();return}
+  V.src=ctx.createMediaStreamSource(V.stream);V.proc=ctx.createScriptProcessor(4096,1,1);V.mute=ctx.createGain();V.mute.gain.value=0;
+  V.src.connect(V.proc);V.proc.connect(V.mute);V.mute.connect(ctx.destination);
+  V.tail=new Float32Array(0);V.pos=0;V.hang=0;V.proc.onaudioprocess=micChunk;V.on=true;
+  render();toast('🎙️ المايك شغال');
+}
+function micOff(){
+  V.on=false;
+  try{V.proc&&(V.proc.onaudioprocess=null,V.proc.disconnect());V.src&&V.src.disconnect();V.mute&&V.mute.disconnect()}catch(e){}
+  if(V.stream)V.stream.getTracks().forEach(t=>{try{t.stop()}catch(e){}});
+  V.stream=V.src=V.proc=V.mute=null;
+}
+function voiceStop(){micOff();V.next={};V.seqs={}}
+function micChunk(e){
+  if(!V.on||!C.joined)return;
+  const inp=e.inputBuffer.getChannelData(0),buf=new Float32Array(V.tail.length+inp.length);buf.set(V.tail);buf.set(inp,V.tail.length);
+  const r=V.ctx.sampleRate/8000,out=[];let pos=V.pos,sq=0;
+  while(pos+r<=buf.length){const a=Math.floor(pos),b=Math.max(a+1,Math.floor(pos+r));let s=0;for(let i=a;i<b;i++)s+=buf[i];s/=(b-a);out.push(s);sq+=s*s;pos+=r}
+  const cut=Math.floor(pos);V.tail=buf.slice(cut);V.pos=pos-cut;
+  if(!out.length)return;
+  if(Math.sqrt(sq/out.length)>0.008)V.hang=6;else if(V.hang>0)V.hang--;else return; // ما نرسل وقت السكوت
+  const u8=new Uint8Array(out.length);for(let i=0;i<out.length;i++)u8[i]=mulawEnc(out[i]);
+  let bin='';for(let i=0;i<u8.length;i++)bin+=String.fromCharCode(u8[i]);
+  voiceOut({n:V.seq++,a:btoa(bin)});
+}
+function voiceOut(d){
+  if(!C.joined)return;
+  if(Net.isHost)return hostVoice(Net.myId,d);
+  const s=JSON.stringify({t:'vc',d,f:Net.myId}),hp=Net.hp;
+  if(hp&&hp.u&&hp.u.readyState==='open'){if(hp.u.bufferedAmount>65536)return;try{hp.u.send(s);return}catch(e){}}
+  if(Net.mq)Net.mq.publish(tp('/h'),s);
+}
+function hostVoice(from,d){
+  if(!Net.isHost||!d||typeof d.a!=='string'||d.a.length>6000||typeof d.n!=='number')return;
+  const s=JSON.stringify({t:'vc',d:{f:from,n:d.n,a:d.a}});let viaMq=false;
+  H.players.forEach(p=>{
+    if(!p.on||p.id===from||p.id===Net.myId)return;
+    const pr=Net.peers[p.id];
+    if(pr&&pr.u&&pr.u.readyState==='open'&&pr.u.bufferedAmount<65536){try{pr.u.send(s);return}catch(e){}}
+    viaMq=true;
+  });
+  if(viaMq&&Net.mq)Net.mq.publish(tp('/v'),s);
+  if(from!==Net.myId)voicePlay({f:from,n:d.n,a:d.a});
+}
+function voicePlay(d){
+  if(!d||typeof d.a!=='string'||!d.f||d.f===C.me||d.f===Net.myId)return;
+  const last=V.seqs[d.f];if(last!=null&&d.n<=last)return;V.seqs[d.f]=d.n; // بدون تكرار (لو وصل من الطريقين)
+  const ctx=voiceCtx();if(!ctx)return;
+  let bin;try{bin=atob(d.a)}catch(e){return}
+  const n=bin.length;if(!n)return;
+  const pcm=new Float32Array(n);for(let i=0;i<n;i++)pcm[i]=mulawDec(bin.charCodeAt(i));
+  const sr=ctx.sampleRate,k=sr/8000,len=Math.floor(n*k);
+  const ab=ctx.createBuffer(1,len,sr),ch=ab.getChannelData(0);
+  for(let j=0;j<len;j++){const x=j/k,i=Math.floor(x),f=x-i,a=pcm[i],b=i+1<n?pcm[i+1]:a;ch[j]=a+(b-a)*f}
+  const src=ctx.createBufferSource();src.buffer=ab;src.connect(V.out);
+  const now=ctx.currentTime;let t=V.next[d.f]||0;if(t<now+0.02||t>now+0.8)t=now+0.15;
+  src.start(t);V.next[d.f]=t+ab.duration;
+}
+
+/* زر المايك العائم: اضغط = تشغيل/قفل، اسحبه لفوق وتحت أو للجنب الثاني، ✕ = إخفاء (يصير لسان صغير على الجنب) */
+const MF=Object.assign({side:'left',y:Math.round(innerHeight*.6)},LS.get('fg_micpos',{})||{},{hide:!!LS.get('fg_michide',false)});
+function placeFab(el){
+  const y=Math.max(70,Math.min(innerHeight-(MF.hide?70:100),MF.y||0)),edge=MF.hide?'0':'10px';
+  el.style.top=y+'px';el.style.left=MF.side==='left'?edge:'auto';el.style.right=MF.side==='right'?edge:'auto';
+  el.classList.toggle('l',MF.side==='left');el.classList.toggle('r',MF.side==='right');
+}
+function micFab(){
+  const el=$('#micfab');if(!el)return;
+  if(!C.joined){el.className='';el.innerHTML='';return}
+  const ic=V.on?'🎙️':'🔇';
+  el.className='show';
+  el.innerHTML=MF.hide?'<button class="mf-tab'+(V.on?' on':'')+'" data-m="show" aria-label="إظهار المايك">'+ic+'</button>'
+    :'<button class="mf-btn'+(V.on?' on':'')+'" data-m="mic" aria-label="المايك">'+ic+'</button><button class="mf-x" data-m="hide" aria-label="إخفاء">✕</button><span class="mf-lb">'+(V.on?'المايك شغال':'المايك مقفل')+'</span>';
+  placeFab(el);
+}
+(function(){
+  const el=$('#micfab');let st=null;
+  el.addEventListener('pointerdown',e=>{const r=el.getBoundingClientRect();st={x:e.clientX,y:e.clientY,ox:r.left,oy:r.top,drag:false,t:e.target.closest('[data-m]')};try{el.setPointerCapture(e.pointerId)}catch(_){}});
+  el.addEventListener('pointermove',e=>{
+    if(!st)return;const dx=e.clientX-st.x,dy=e.clientY-st.y;
+    if(!st.drag&&Math.hypot(dx,dy)<8)return;
+    st.drag=true;el.classList.add('drag');el.style.right='auto';el.style.left=(st.ox+dx)+'px';el.style.top=(st.oy+dy)+'px';
+  });
+  el.addEventListener('pointerup',()=>{
+    if(!st)return;const s=st;st=null;el.classList.remove('drag');
+    if(s.drag){const r=el.getBoundingClientRect();MF.side=(r.left+r.width/2)<innerWidth/2?'left':'right';MF.y=r.top;LS.set('fg_micpos',{side:MF.side,y:MF.y});placeFab(el);return}
+    const m=s.t&&s.t.dataset.m;if(!m)return;sfx('tap');voiceCtx();
+    if(m==='mic')micToggle();
+    else if(m==='hide'){MF.hide=true;LS.set('fg_michide',true);micFab()}
+    else if(m==='show'){MF.hide=false;LS.set('fg_michide',false);micFab()}
+  });
+  el.addEventListener('pointercancel',()=>{st=null;el.classList.remove('drag');placeFab(el)});
+  addEventListener('resize',()=>{if(C.joined)placeFab(el)});
+})();
 
 /* إرسال الإجراءات */
 const act = (k,v,extra)=>sendHost({t:'in',d:Object.assign({k,v},extra||{})});
@@ -1188,7 +1323,7 @@ function render(){
     else if(C.state==='end')h+=vEnd();
   }
   app.innerHTML=h;
-  tickTimer(true);
+  tickTimer(true);micFab();
 }
 function netChip(){
   if(!C.joined)return'';
@@ -1488,8 +1623,10 @@ app.addEventListener('click',e=>{
     case 'role':C.showRole=!C.showRole;render();break;
     case 'help':showHelp(v||(C.st&&C.st.g)||(C.lobby&&C.lobby.game));break;
     case 'ctl':ctl(v);break;
+    case 'mic':micToggle();break;
   }
 });
+document.addEventListener('click',()=>{if(C.joined)voiceCtx()},true); // تفعيل الصوت بأول ضغطة داخل الغرفة
 function saveName(){const i=$('#nm');if(i)LS.set('fg_name',i.value.trim())}
 function confirmLeave(){return C.state==='lobby'&&!Net.isHost?true:window.confirm(Net.isHost?'تبي تقفل الغرفة على الكل؟':'تبي تطلع من اللعبة؟')}
 function copyLink(){
