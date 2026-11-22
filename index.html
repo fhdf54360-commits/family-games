@@ -261,6 +261,17 @@ body::after{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;opa
 #micfab.l .mf-tab{border-radius:0 16px 16px 0}#micfab.r .mf-tab{border-radius:16px 0 0 16px}
 #micfab.l .mf-lb{left:0;transform:none}#micfab.r .mf-lb{left:auto;right:0;transform:none}
 #micfab.drag .mf-btn,#micfab.drag .mf-tab{animation:none;transform:scale(1.12);cursor:grabbing}
+/* شرح أول دخول */
+#intro{position:fixed;inset:0;z-index:90;background:rgba(8,4,24,.78);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center;padding:16px}
+#intro.show{display:flex}
+.in-card{width:100%;max-width:460px;background:linear-gradient(170deg,#1a2747,#0d1630);border:1px solid var(--line);border-radius:26px;padding:22px 18px 16px;text-align:center;animation:up .25s ease;box-shadow:0 20px 50px rgba(0,0,0,.45)}
+.in-ic{font-size:64px;line-height:1;margin:6px 0 10px;animation:bob 3s ease-in-out infinite;display:inline-block}
+.in-t{font-weight:900;font-size:23px;margin:0 0 8px}
+.in-d{color:var(--mut);font-size:15.5px;line-height:1.75;min-height:84px}
+.in-dots{display:flex;gap:6px;justify-content:center;margin:14px 0 6px}
+.in-dots i{width:8px;height:8px;border-radius:99px;background:rgba(255,255,255,.2);transition:width .2s}
+.in-dots i.on{width:22px;background:var(--acc)}
+.in-row{display:flex;gap:8px;margin-top:6px}.in-row .btn{margin:6px 0}
 </style>
 </head>
 <body>
@@ -268,6 +279,7 @@ body::after{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;opa
 <div id="toast"></div>
 <div id="modal"></div>
 <div id="micfab"></div>
+<div id="intro"></div>
 <script>
 'use strict';
 /* ╔══════════════════════════════════════════════════════════════════╗
@@ -1635,6 +1647,34 @@ function showHelp(k){
 }
 function closeHelp(){const m=$('#modal');m.classList.remove('show');m.innerHTML=''}
 $('#modal').addEventListener('click',e=>{if(e.target.id==='modal'||e.target.closest('[data-a=closehelp]')){sfx('tap');closeHelp()}});
+/* ---------- شرح أول دخول (يطلع مرة وحدة بس، ينحفظ في fg_intro) ---------- */
+const INTRO = [
+  {i:'🎲',t:'هلا فيك في ألعاب عائلية!',d:'ألعاب جماعية تلعبونها مع الأهل والربع، كل واحد من جواله.'},
+  {i:'✍️',t:'اكتب اسمك واختر صورتك',d:'من الصفحة الرئيسية اكتب اسمك واختر إيموجي يمثلك، عشان يعرفونك الباقين.'},
+  {i:'🎮',t:'سوّ غرفة أو ادخل وحدة',d:'«إنشاء غرفة» تسوي غرفتك وترسل الرابط لأهلك. أو ادخل غرفة موجودة من «الغرف المتاحة» أو «دخول برمز» أو «بحث سريع».'},
+  {i:'🔒',t:'الغرفة الخاصة',d:'لو تبي غرفة ما يشوفها أحد، اختر «غرفة خاصة»، والدخول لها بالرابط بس.'},
+  {i:'🕵️',t:'خمس ألعاب',d:'برا السالفة، تحدي الفئات، وش تتوقع يختار؟، المزاد العائلي، ومن الأقرب؟ — اضغط على أي لعبة عشان تشوف شرحها.'},
+  {i:'🎙️',t:'المايك داخل الغرفة',d:'داخل الغرفة فيه زر مايك تقدر تسحبه على جنب الشاشة، وتسولفون فيه وأنتم تلعبون.'},
+  {i:'🚀',t:'جاهز؟ يلا نبدأ!',d:'المضيف يختار اللعبة وعدد الجولات، والباقين يضغطون «أنا جاهز». بالتوفيق!'},
+];
+let introI=0;
+function showIntro(){introI=0;drawIntro();$('#intro').classList.add('show')}
+function drawIntro(){
+  const s=INTRO[introI],last=introI===INTRO.length-1;
+  $('#intro').innerHTML='<div class="in-card"><div class="in-ic">'+s.i+'</div><div class="in-t">'+esc(s.t)+'</div><div class="in-d">'+esc(s.d)+'</div>'+
+    '<div class="in-dots">'+INTRO.map((_,i)=>'<i class="'+(i===introI?'on':'')+'"></i>').join('')+'</div>'+
+    '<div class="in-row">'+(last?'':'<button class="btn ghost small" data-i="skip">تخطي</button>')+
+    (introI>0?'<button class="btn sec small" data-i="prev">السابق</button>':'')+
+    '<button class="btn small" data-i="next">'+(last?'يلا نبدأ 🎉':'التالي ←')+'</button></div></div>';
+}
+function closeIntro(){LS.set('fg_intro',true);const m=$('#intro');m.classList.remove('show');m.innerHTML=''}
+$('#intro').addEventListener('click',e=>{
+  const b=e.target.closest('[data-i]');if(!b)return;sfx('tap');
+  const k=b.dataset.i;
+  if(k==='skip')closeIntro();
+  else if(k==='prev'){if(introI>0){introI--;drawIntro()}}
+  else if(k==='next'){if(introI<INTRO.length-1){introI++;drawIntro()}else closeIntro()}
+});
 function floatEmoji(e,from){
   const el=document.createElement('div');el.className='float';el.style.left=(15+rand(70))+'%';
   el.innerHTML=esc(e)+(from?'<small>'+esc(pl(from).name)+'</small>':'');document.body.appendChild(el);setTimeout(()=>el.remove(),2300);
@@ -1704,6 +1744,7 @@ function fallbackCopy(u,ok){const t=document.createElement('textarea');t.value=u
 /* للتجربة الآلية فقط */
 window.__fg={C,H,Net,GAMES,BANK};
 render();
+if(!LS.get('fg_intro',false))showIntro(); // شرح أول دخول بس
 </script>
 </body>
 </html>
