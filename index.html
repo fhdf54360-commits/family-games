@@ -242,6 +242,10 @@ body::after{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;opa
 #toast{border-radius:16px}
 .game .mn{direction:ltr}
 .board{flex-wrap:wrap;overflow:visible}.bp{min-width:calc(25% - 6px)}
+/* إصلاح صور اللاعبين في الجوال */
+.avs{grid-template-columns:repeat(6,minmax(0,1fr))}
+.av{min-width:0;width:100%;font-size:clamp(18px,6.2vw,27px)}
+@media (max-width:400px){.avs{gap:5px}.av{border-radius:12px}}
 </style>
 </head>
 <body>
@@ -501,27 +505,27 @@ const HELP = {
     'يظهر سؤال من فئة (دين، جغرافيا، علوم، رياضة…) وتحته 4 خيارات.',
     'عندك '+sec(T.categories)+' ثانية تختار، وما تقدر تغيّر جوابك بعد ما تضغط.',
     'بعد ما يجاوب الكل أو يخلص الوقت، يظهر الجواب الصحيح ومين اختار وش.'],
-    score:['جواب صح: 500 نقطة + حتى 500 زيادة حسب سرعتك','جواب غلط أو ما جاوبت: 0'],
+    score:['جواب صح: 500 نقطة + حتى 500 زيادة حسب سرعتك','جواب غلط أو ما جاوبت: 0','إذا تعادل الأوائل في النهاية: جولة فاصلة نهائية للمتعادلين'],
     tip:'السرعة تفرق! بس لا تستعجل وتضغط غلط.'},
   guess:{who:who('guess'), steps:[
     'كل جولة فيه «صاحب دور» يتغير بالترتيب.',
     'يظهر سؤال عن صاحب الدور مع 4 خيارات، مثل: «وش أكلته المفضلة؟».',
     'صاحب الدور يختار جوابه الحقيقي بالسر، والباقين يتوقعون وش بيختار ('+sec(T.guess)+' ثانية).',
     'بعدين ينكشف اختياره وتشوفون مين يعرفه زين.'],
-    score:['كل توقع صح: +100 للي توقع','صاحب الدور: +50 عن كل واحد توقع اختياره صح'],
+    score:['كل توقع صح: +100 للي توقع','صاحب الدور: +50 عن كل واحد توقع اختياره صح','إذا تعادل الأوائل في النهاية: جولة فاصلة نهائية للمتعادلين'],
     tip:'يا صاحب الدور جاوب بصدق، كل ما عرفوك أكثر كسبت أكثر!'},
   auction:{who:who('auction'), steps:[
     'الكل يبدأ بـ '+AUCTION_START+' نقطة.',
     'تظهر الفئة بس (مثل: «جغرافيا») بدون السؤال.',
     'كل واحد يراهن بجزء من نقاطه: 100 أو 250 أو 500 أو الكل ('+sec(T.bet)+' ثانية).',
     'بعدين يظهر السؤال بـ 4 خيارات وتجاوب ('+sec(T.auction)+' ثانية).'],
-    score:['جواب صح: يضاف لك مبلغ رهانك','جواب غلط: ينخصم منك مبلغ رهانك','ما راهنت: لا تكسب ولا تخسر','إذا خلصت نقاطك يطلع لك «رهان إنقاذ» بـ 100'],
+    score:['جواب صح: يضاف لك مبلغ رهانك','جواب غلط: ينخصم منك مبلغ رهانك','ما راهنت: لا تكسب ولا تخسر','إذا خلصت نقاطك يطلع لك «رهان إنقاذ» بـ 100','إذا تعادل الأوائل في النهاية: جولة فاصلة نهائية للمتعادلين'],
     tip:'راهن كثير على الفئات اللي تعرفها، وقلّل في الباقي.'},
   closest:{who:who('closest'), steps:[
     'يظهر سؤال جوابه رقم، مثل: «كم ارتفاع برج خليفة بالمتر؟».',
     'تحته 4 أرقام مقترحة، تختار واحد ('+sec(T.closest)+' ثانية).',
     'بعدين يظهر الرقم الصحيح.'],
-    score:['اللي اختار الرقم الصحيح: +300','إذا ما أحد اختار الصحيح، الأقرب له ياخذ +150'],
+    score:['اللي اختار الرقم الصحيح: +300','إذا ما أحد اختار الصحيح، الأقرب له ياخذ +150','إذا تعادل الأوائل في النهاية: جولة فاصلة نهائية للمتعادلين'],
     tip:'إذا ما تعرف، فكّر بالمنطق وش الرقم الأقرب للواقع.'},
 };
 const MAX_PLAYERS = 8;
@@ -817,7 +821,7 @@ function pubPlayers(){return H.players.map(p=>({id:p.id,name:p.name,av:p.av,on:p
 function lobbyMsg(){return{t:'lobby',d:{players:pubPlayers(),game:H.game,rounds:H.rounds,hostId:Net.myId,code:Net.code,b:Net.idx,priv:!!H.priv}}}
 function pushLobby(){broadcast(lobbyMsg());publishRoom()}
 function scMsg(){const s={};H.players.forEach(p=>s[p.id]=p.score);return{t:'sc',d:s}}
-function stMsg(){return{t:'st',d:{s:H.state,ph:H.ph,ms:Math.max(0,H.ends-Date.now()),dur:H.dur,done:Object.keys(H.done),r:H.r,N:H.rounds,g:H.game}}}
+function stMsg(){return{t:'st',d:{s:H.state,ph:H.ph,ms:Math.max(0,H.ends-Date.now()),dur:H.dur,done:Object.keys(H.done),r:H.r,N:H.rounds,g:H.game,tb:!!H.tb}}}
 function betOptions(p){const s=p?p.score:0;if(s<=0)return[100];const o=[100,250,500].filter(x=>x<s);o.push(s);return[...new Set(o)]}
 function roundMsg(id){
   const g=H.game,q=H.q,d={g,r:H.r,N:H.rounds,ph:H.ph,my:H.inputs[id]||{}};
@@ -892,7 +896,7 @@ function startGame(){
   if(!bank.length||(H.game==='outsider'&&bank.length<4)){sendTo(Net.myId,{t:'fx',d:{k:'toast',m:'أضف أسئلة لهذي اللعبة أول'}});return}
   H.players=H.players.filter(p=>p.on);
   H.players.forEach(p=>{p.score=H.game==='auction'?AUCTION_START:0});
-  H.r=0;H.used=new Set();H.lastOut=null;H.final=null;H.results=null;
+  H.r=0;H.used=new Set();H.lastOut=null;H.final=null;H.results=null;H.tb=false;H.tbN=0;H.tbIds=[];
   broadcast(scMsg());nextRound();
 }
 function setTimer(ms,fn){clearTimeout(H.timer);H.dur=ms;H.ends=Date.now()+ms;H.timer=setTimeout(fn,ms)}
@@ -906,7 +910,14 @@ function pickQ(g){
 }
 function nextRound(){
   clearTimeout(H.timer);
-  if(H.r>=H.rounds)return endGame();
+  if(H.r>=H.rounds){ // جولة فاصلة عند التعادل (كل الألعاب ما عدا برا السالفة)
+    if(H.game==='outsider'||H.tbN>=3)return endGame();
+    const a=active();if(!a.length)return endGame();
+    const top=Math.max(...a.map(p=>p.score)),tied=a.filter(p=>p.score===top);
+    if(tied.length<2)return endGame();
+    H.tb=true;H.tbN++;H.tbIds=tied.map(p=>p.id);
+    sendTo(Net.myId,{t:'fx',d:{k:'toast',m:'⚔️ تعادل! جولة فاصلة نهائية'}});
+  }
   const ids=active().map(p=>p.id);
   if(ids.length<GAMES[H.game].min){sendTo(Net.myId,{t:'fx',d:{k:'toast',m:'عدد اللاعبين ما يكفي، انتهت اللعبة'}});return endGame()}
   H.r++;H.inputs={};H.done={};H.results=null;H.q=pickQ(H.game);
@@ -1005,11 +1016,12 @@ function reveal(){
     a.forEach(p=>{const i=I(p.id);let pts=0;if(p.id===H.outId){if(!caught)pts+=200;if(guessed)pts+=100}else if(caught&&i.vote===H.outId)pts=100;delta[p.id]=pts;res.items.push({id:p.id,vote:i.vote||null,votes:votes[p.id]||0,pts})});
     Object.assign(res,{w:q.w,c:q.c,out:H.outId,caught,guess:guess||null,guessed});
   }
+  if(H.tb&&g!=='outsider'){H.players.forEach(p=>{if(!H.tbIds.includes(p.id))delta[p.id]=0});res.items.forEach(it=>{if(!H.tbIds.includes(it.id))it.pts=0})}
   H.players.forEach(p=>p.score+=delta[p.id]||0);
   res.delta=delta;H.results=res;
   broadcast({t:'rs',d:res});broadcast(scMsg());
   const tok=++H.tok;
-  if(g==='outsider'){clearTimeout(H.timer);H.dur=0;H.ends=0}else setTimer(T.reveal,()=>{if(tok===H.tok)nextRound()});
+  clearTimeout(H.timer);H.dur=0;H.ends=0; // بدون انتقال تلقائي: المضيف يضغط «الجولة التالية»
   broadcast(stMsg());
 }
 function endGame(){
@@ -1296,11 +1308,11 @@ function updateDoneMarks(){
   const wl=$('#waitlist');if(wl)wl.innerHTML=waitItems();
   C.deadline=performance.now()+((C.st&&C.st.ms)||0);
 }
-function gameHead(){const g=G(),st=C.st||{};return'<div class="gamehead"><div class="gtitle">'+g.icon+' '+g.name+'</div><div class="chips"><span class="chip btnchip" data-a="help" data-v="'+(st.g||'')+'">❓ الشرح</span><span class="chip">الجولة '+(st.r||1)+' / '+(st.N||1)+'</span></div></div>'}
+function gameHead(){const g=G(),st=C.st||{};return'<div class="gamehead"><div class="gtitle">'+g.icon+' '+g.name+'</div><div class="chips"><span class="chip btnchip" data-a="help" data-v="'+(st.g||'')+'">❓ الشرح</span>'+(st.tb?'<span class="chip" style="color:var(--gc)">⚔️ جولة فاصلة</span>':'<span class="chip">الجولة '+(st.r||1)+' / '+(st.N||1)+'</span>')+'</div></div>'}
 function timerBar(){if((C.st&&C.st.g)==='outsider')return'';return'<div class="timer"><i id="tbar"></i></div><div class="tsec" id="tsec"></div>'}
 function vCountdown(){
   const st=C.st||{};
-  return gameHead()+board(false)+'<div class="cd" id="cdn">3</div><div class="c" style="font-weight:800;font-size:20px">'+(st.r===1?'نبدأ!':'الجولة '+st.r)+'</div>'+
+  return gameHead()+board(false)+'<div class="cd" id="cdn">3</div><div class="c" style="font-weight:800;font-size:20px">'+(st.tb?'⚔️ جولة فاصلة نهائية!':st.r===1?'نبدأ!':'الجولة '+st.r)+'</div>'+
     (st.g==='guess'?'<div class="hint">جهّزوا توقعاتكم</div>':st.g==='outsider'?'<div class="hint">خلّ جوالك بعيد عن عيون الباقين 👀</div>':'');
 }
 function optBtns(o,{sel=null,disabled=false,num=false,right=null,whoMap=null}={}){
@@ -1373,7 +1385,7 @@ function vPlay(){
 function ptsTxt(p){return'<span class="p '+(p>0?'plus':p<0?'minus':'zero')+'">'+(p>0?'+':'')+fmt(p)+'</span>'}
 function vReveal(){
   const R=C.rs;if(!R)return vWait('جاري حساب النتائج…',true);
-  let h=gameHead()+board(false)+timerBar();
+  let h=gameHead()+board(false);
   const whoMap={};(R.items||[]).forEach(it=>{if(it.ans!=null&&!it.turn){whoMap[it.ans]=(whoMap[it.ans]||'')+pl(it.id).av}});
   if(R.g==='outsider'){
     const o=pl(R.out);
@@ -1401,7 +1413,7 @@ function vReveal(){
       return'<div class="res'+(ok==='ok'||ok==='near'?' good':ok?' wrong':'')+'"><span class="a">'+esc(p.av)+'</span><span class="n">'+esc(p.name)+'<div class="x">'+badge+x+'</div></span>'+ptsTxt(it.pts)+'</div>'}).join('')+'</div>';
   }
   if(amHost())h+='<button class="btn" data-a="ctl" data-v="next">⏭️ '+(C.st&&C.st.r>=C.st.N?'النتيجة النهائية':'الجولة التالية')+'</button><button class="btn ghost small" data-a="ctl" data-v="lobby">🏠 إنهاء اللعبة والرجوع للغرفة</button>';
-  else h+='<div class="hint">'+(R.g==='outsider'?'بانتظار المضيف يبدأ الجولة التالية…':'الجولة التالية تبدأ تلقائيًا…')+'</div>';
+  else h+='<div class="hint">'+'بانتظار المضيف يبدأ الجولة التالية…'+'</div>';
   return h+reacts();
 }
 function vEnd(){
