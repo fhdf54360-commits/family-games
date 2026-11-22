@@ -494,7 +494,8 @@ const who = k=>'من '+GAMES[k].min+' إلى '+GAMES[k].max+' لاعبين';
 const HELP = {
   outsider:{who:who('outsider'), steps:[
     'كل اللاعبين توصلهم نفس الكلمة السرية، إلا واحد يوصله «أنت برا السالفة» ويعرف الفئة بس.',
-    'يطلع لكم ترتيب الأسئلة: «فلان يسأل فلان»، وكل واحد يسأل اللي عليه سؤال عن الكلمة بدون ما يفضحها.',
+    'اللي برا السالفة ينختار عشوائي كل جولة (ممكن يطلع نفس الشخص مرتين).',
+    'يطلع لكم ترتيب الأسئلة: «فلان يسأل فلان»، وكل واحد يسأل كل واحد من الباقين سؤال عن الكلمة بدون ما يفضحها.',
     'اللي برا السالفة يحاول يجاري الكلام ويفهم الكلمة من الأسئلة والأجوبة.',
     'ما فيه وقت ولا عد تنازلي: خذوا راحتكم، ولما تخلصون المضيف يضغط «ابدأ التصويت».',
     'وقت التصويت كل واحد يختار مين يشك إنه برا السالفة.',
@@ -922,11 +923,11 @@ function nextRound(){
   if(ids.length<GAMES[H.game].min){sendTo(Net.myId,{t:'fx',d:{k:'toast',m:'عدد اللاعبين ما يكفي، انتهت اللعبة'}});return endGame()}
   H.r++;H.inputs={};H.done={};H.results=null;H.q=pickQ(H.game);
   if(H.game==='outsider'){
-    let c=ids.filter(x=>x!==H.lastOut);if(!c.length)c=ids;
-    H.outId=c[rand(c.length)];H.lastOut=H.outId;
+    const rr=new Uint32Array(1);crypto.getRandomValues(rr); // اختيار عشوائي بالكامل من كل اللاعبين
+    H.outId=ids[rr[0]%ids.length];H.lastOut=H.outId;
     const others=shuffle(Q_OUTSIDER.filter(x=>x.w!==H.q.w)).slice(0,3).map(x=>x.w);
     H.guessOpts=shuffle([H.q.w,...others]);
-    const ord=shuffle(ids);H.pairs=ord.map((x,i)=>[x,ord[(i+1)%ord.length]]); // فلان يسأل فلان
+    const ord=shuffle(ids);H.pairs=[];for(let k=1;k<ord.length;k++)ord.forEach((x,i)=>H.pairs.push([x,ord[(i+k)%ord.length]])); // فلان يسأل فلان: كل لاعب يسأل كل لاعب ثاني مرة وحدة
   }
   if(H.game==='guess')H.turn=ids[(H.r-1)%ids.length];
   if(H.game==='outsider'){startPlay();publishRoom();return} // بدون عد تنازلي
