@@ -1620,8 +1620,12 @@ function vReveal(){
       if(it.ans!=null&&it.t!=null&&!it.turn)x+=' · ⏱️ '+(it.t/1000).toFixed(1)+' ث';
       return'<div class="res'+(ok==='ok'||ok==='near'?' good':ok?' wrong':'')+'"><span class="a">'+esc(p.av)+'</span><span class="n">'+esc(p.name)+'<div class="x">'+badge+x+'</div></span>'+ptsTxt(it.pts)+'</div>'}).join('')+'</div>';
   }
-  if(amHost())h+='<button class="btn" data-a="ctl" data-v="next">⏭️ '+(C.st&&C.st.r>=C.st.N?'النتيجة النهائية':'الجولة التالية')+'</button><button class="btn ghost small" data-a="ctl" data-v="lobby">🏠 إنهاء اللعبة والرجوع للغرفة</button>';
-  else h+='<div class="hint">'+'بانتظار المضيف يبدأ الجولة التالية…'+'</div>';
+  /* تعادل في آخر جولة = بتجي جولة فاصلة (نفس شرط nextRound: كل الألعاب ما عدا برا السالفة، ولين 3 جولات فاصلة) */
+  const st0=C.st||{},last=st0.r>=st0.N;let tie=false;
+  if(last&&R.g!=='outsider'&&C.lobby&&(st0.r-st0.N)<3){const a=C.lobby.players.filter(p=>p.on),ss=a.map(p=>C.sc[p.id]||0),top=Math.max(...ss);tie=a.length>1&&ss.filter(x=>x===top).length>=2}
+  if(tie)h+='<div class="banner" style="font-size:18px;background:color-mix(in srgb,var(--gc) 18%,transparent);color:var(--gc)">⚔️ تعادل! بتلعبون جولة فاصلة</div>';
+  if(amHost())h+='<button class="btn" data-a="ctl" data-v="next">'+(tie?'⚔️ الجولة الفاصلة':'⏭️ '+(last?'النتيجة النهائية':'الجولة التالية'))+'</button><button class="btn ghost small" data-a="ctl" data-v="lobby">🏠 إنهاء اللعبة والرجوع للغرفة</button>';
+  else h+='<div class="hint">'+(tie?'بانتظار المضيف يبدأ الجولة الفاصلة…':'بانتظار المضيف يبدأ الجولة التالية…')+'</div>';
   return h+reacts();
 }
 function vEnd(){
