@@ -294,6 +294,10 @@ body::after{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;opa
 .ladder span.on{background:var(--gc);color:#1d1240}
 .stmt{display:block;width:100%;text-align:right;padding:14px;border-radius:16px;border:2px solid var(--line);background:rgba(255,255,255,.06);color:#fff;font:inherit;font-weight:800;font-size:16.5px;line-height:1.5;margin:8px 0;cursor:pointer}
 .stmt.sel{border-color:#fff}.stmt.dim{opacity:.4}.stmt.lie{border-color:var(--bad);background:rgba(255,93,115,.18)}.stmt.tru{border-color:var(--ok);background:rgba(46,230,166,.1)}
+/* إصلاح الجوال: أيقونات الصفحة الرئيسية (صارت 9) تصغر على قد الشاشة وتنزل سطر لو ما وسعت، عشان الصفحة ما تطلع أعرض من الجوال */
+.floaty{flex-wrap:wrap;gap:6px}
+.floaty span{width:clamp(30px,8.5vw,46px);height:clamp(30px,8.5vw,46px);font-size:clamp(17px,5vw,25px);border-radius:12px}
+html,body{overflow-x:clip}
 </style>
 </head>
 <body>
